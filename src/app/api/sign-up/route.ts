@@ -1,8 +1,10 @@
 import dbConnect from "@/lib/dbConnect";
 import { UserModel } from "@/models/User";
-import bcrypt from "bcryptjs";
+import  bcrypt from "bcryptjs";
 import { sendVerificationEmail } from "@/helpers/sendVerificationEmail";
-import { CLIENT_STATIC_FILES_RUNTIME_REACT_REFRESH } from "next/dist/shared/lib/constants";
+
+
+
 
 export async function POST(request: Request) {
   await dbConnect();
@@ -28,7 +30,22 @@ export async function POST(request: Request) {
     const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
 
     if (existingUserByEmail) {
-      true;
+      if (existingUserByEmail.isVerified) {
+        return Response.json(
+          {
+            success: false,
+            message: "User already exist with this email!",
+          },
+          { status: 400 }
+        );
+      } else {
+        const hashedPassword = bcrypt.hashSync(password, 12);
+
+        existingUserByEmail.password = hashedPassword;
+        existingUserByEmail.verifyCode = verifyCode;
+        existingUserByEmail.verifyCodeExpiry = new Date(Date.now() + 3600000);
+        await existingUserByEmail.save();
+      }
     } else {
       const hashedPassword = bcrypt.hashSync(password, 12);
       const exipryDate = new Date();
@@ -64,12 +81,12 @@ export async function POST(request: Request) {
     }
 
     return Response.json(
-        {
-          success: true,
-          message: "User registered successfully.Please verify your email",
-        },
-        { status: 200 }
-      );
+      {
+        success: true,
+        message: "User registered successfully.Please verify your email",
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error("Error registering user", error);
     return Response.json(
