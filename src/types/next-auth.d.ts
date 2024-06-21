@@ -28,6 +28,10 @@ declare module "next-auth/jwt" {
 }
 
 
+declare module 'react-materialize';
+declare module 'react-router';
+
+
 // declare module 'bcryptjs' {
 //   export function hashSync(data: any, saltOrRounds: any): string;
 //   export function compareSync(data: any, encrypted: string): boolean;
