@@ -1,66 +1,65 @@
 import dbConnect from "@/lib/dbConnect";
 import { UserModel } from "@/models/User";
-import { usernameValidation } from "@/schemas/signUpSchema";
-import { z } from "zod";
 import { authOptions } from "../auth/[...nextauth]/options";
 import { User, getServerSession } from "next-auth";
 import mongoose from "mongoose";
+
+async function authenticateUser() {
+  const session = await getServerSession(authOptions);
+  if (!session || !session.user) {
+    return null;
+  }
+  return session.user as User;
+}
+
+async function fetchUserMessages(userId: mongoose.Types.ObjectId) {
+  return UserModel.aggregate([
+    { $match: { _id: userId } },
+    { $unwind: "$messages" },
+    { $sort: { "messages.createdAt": -1 } },
+    { $group: { _id: "$_id", messages: { $push: "$messages" } } },
+  ]);
+}
 
 export async function GET(request: Request) {
   await dbConnect();
 
   try {
-    const session = await getServerSession(authOptions);
-    console.log(session);
-
-    const user: User = session?.user as User;
-    if (!session || !session.user) {
-      return Response.json(
-        {
-          success: false,
-          message: "Not Authenticated",
-        },
+    const user = await authenticateUser();
+    console.log("User",user)
+    if (!user) {
+      return new Response(
+        JSON.stringify({ success: false, message: "Not Authenticated" }),
         { status: 401 }
       );
     }
 
     const userId = new mongoose.Types.ObjectId(user._id);
-    const users = await UserModel.aggregate([
-      {
-        $match: { id: userId },
-      },
-      { $unwind: "$messages" },
-      {
-        $sort: {
-          "messages.createdAt": -1,
-        },
-      },
-      { $group: { _id: "$_id", messages: { $push: "$messages" } } },
-    ]);
+    const users = await fetchUserMessages(userId);
 
-    if (!users) {
-      return Response.json(
-        {
-          success: false,
-          message: "User not found!",
-        },
-        { status: 401 }
+    console.log("User messages",users)
+
+    if (!users || users.length === 0) {
+      return new Response(
+        JSON.stringify({ success: false, message: "User not found!" }),
+        { status: 404 }
       );
     }
-    return Response.json(
-      {
+
+    return new Response(
+      JSON.stringify({
         success: true,
-        messages: user[0].messages,
-      },
+        messages: users[0].messages,
+      }),
       { status: 200 }
     );
   } catch (error) {
-    console.log("Failed to update user status to accept messages");
-    return Response.json(
-      {
+    console.error("Error fetching user messages", error);
+    return new Response(
+      JSON.stringify({
         success: false,
-        message: "Failed to update user status to accept messages",
-      },
+        message: "Error fetching user messages",
+      }),
       { status: 500 }
     );
   }

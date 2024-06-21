@@ -80,6 +80,7 @@ export async function GET(request: Request) {
 
     const userId = user._id;
     const foundUser = await UserModel.findById(userId);
+    console.log("foundUser",foundUser)
     if (!foundUser) {
       return Response.json(
         {
@@ -93,7 +94,7 @@ export async function GET(request: Request) {
       {
         success: true,
         isAcceptingMessages: foundUser.isAcceptingMessage,
-        message: "User not found",
+        message: "User status retrieved successfully",
       },
       { status: 200 }
     );
